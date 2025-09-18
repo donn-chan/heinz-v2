@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
   ctx.drawImage(bg, 0, 0, width, height);
 
   // ---- Straight Text ----
-  ctx.font = "bold 60px NotoSansThaiBold"; // adjust size as needed
+  ctx.font = "bold 60px NotoSansThai"; // adjust size as needed
   ctx.fillStyle = "black";
   ctx.textAlign = "center";
 
