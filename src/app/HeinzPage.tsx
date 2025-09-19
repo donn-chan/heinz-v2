@@ -1,14 +1,16 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Download, Share2, X, Loader2 } from "lucide-react";
+import domtoimage from "dom-to-image-more";
 
 export default function HeinzPage() {
   const [text, setText] = useState("");
   const [shake, setShake] = useState(false);
   const [showCurved, setShowCurved] = useState(false);
   const [isLoading, setIsLoading] = useState<"download" | "share" | null>(null);
+  const curvedRef = useRef<HTMLDivElement>(null);
   const maxChars = 12;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -36,15 +38,27 @@ export default function HeinzPage() {
     try {
       setIsLoading(action);
   
-      // detect device type
-      let device: "mobile" | "tablet" | "desktop" = "desktop";
-      if (window.innerWidth <= 400) device = "mobile";
-      else if (window.innerWidth <= 768) device = "tablet";
+      // Capture curved text (transparent PNG)
+      let overlayImage: string | null = null;
+      if (curvedRef.current) {
+        await document.fonts.ready;
+        overlayImage = await domtoimage.toPng(curvedRef.current, { bgcolor: "transparent", style: {
+            margin: 0,            // ✅ remove default margins
+            padding: 0,
+            background: "transparent",
+          }, });
+
+        // ✅ Debug: check if overlay was generated
+        console.log("Overlay image length:", overlayImage?.length);
+        // Optionally preview the captured overlay
+        const win = window.open();
+        if (win) win.document.write(`<img src="${overlayImage}" />`);
+      }
   
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, device, mode: action }), // 👈 App Router route
+        body: JSON.stringify({ overlayImage, mode: action }),
       });
   
       if (!res.ok) throw new Error("Failed to generate image");
@@ -74,8 +88,6 @@ export default function HeinzPage() {
       setIsLoading(null);
     }
   };
-  
-  
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
@@ -159,38 +171,40 @@ export default function HeinzPage() {
         ) : (
           // Curved Text Mode
           <div className="absolute top-[0] left-1/2 -translate-x-[48%] z-20 w-[100%] max-w-[440px]">
-            <svg
-              viewBox="0 0 500 200"
-              className="relative z-20 mt-[12vh] w-[100%] max-w-[440px]"
-            >
-              <path
-                id="curve"
-                d="M 60,120 A 180,80 0 0,1 410,120"
-                fill="transparent"
-                stroke="transparent"
-                strokeWidth="1"
-                className="pointer-events-none"
-              />
+            <div ref={curvedRef}>
+                <svg
+                viewBox="0 0 500 200"
+                className="relative z-20 mt-[12vh] w-[100%] max-w-[440px]"
+                >
+                <path
+                    id="curve"
+                    d="M 60,120 A 180,80 0 0,1 410,120"
+                    fill="transparent"
+                    stroke="transparent"
+                    strokeWidth="1"
+                    className="pointer-events-none"
+                />
 
-              <text
-                fill="black"
-                fontSize="42"
-                fontWeight="bold"
-                textAnchor="middle"
-                style={{ fontFamily: '"NotoSansThai", sans-serif' }}
-                className="cursor-pointer focus:outline-none"
-                onClick={handleClear}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") handleClear();
-                }}
-              >
-                <textPath href="#curve" startOffset="50%">
-                  {text}
-                </textPath>
-              </text>
-            </svg>
+                <text
+                    fill="black"
+                    fontSize="42"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                    style={{ fontFamily: '"NotoSansThai", sans-serif' }}
+                    className="cursor-pointer focus:outline-none"
+                    onClick={handleClear}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") handleClear();
+                    }}
+                >
+                    <textPath href="#curve" startOffset="50%">
+                    {text}
+                    </textPath>
+                </text>
+                </svg>
+            </div>
           </div>
         )}
 

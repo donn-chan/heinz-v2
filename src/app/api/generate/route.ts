@@ -1,46 +1,38 @@
 "use server";
 
 import { NextRequest } from "next/server";
-import { createCanvas, loadImage, GlobalFonts } from "@napi-rs/canvas";
-
-// Register Thai font
-GlobalFonts.registerFromPath(
-  `${process.cwd()}/public/fonts/NotoSansThai-Bold.ttf`,
-  "NotoSansThai"
-);
+import { createCanvas, loadImage } from "@napi-rs/canvas";
 
 export async function POST(req: NextRequest) {
-  const { text, mode = "share" } = await req.json();
+  const { overlayImage, mode = "share" } = await req.json();
 
-  if (!text || text.length > 12) {
-    return new Response(JSON.stringify({ error: "Invalid input" }), { status: 400 });
-  }
-
-  // 16:9 HD canvas
-  const width = 1920;
-  const height = 1280;
+  // 16:9 canvas
+  const width = 1920, height = 1280;
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
 
-  // ---- Background ----
+  // ---- Layer 1: Background ----
   const bg = await loadImage(`${process.cwd()}/public/images/result-bg.webp`);
   ctx.drawImage(bg, 0, 0, width, height);
 
-  // ---- Straight Text ----
-  ctx.font = "bold 60px NotoSansThai"; // adjust size as needed
-  ctx.fillStyle = "black";
-  ctx.textAlign = "center";
+  // ---- Layer 2: Curved Text Overlay (from frontend PNG) ----
+  if (overlayImage) {
+    console.log("Overlay received length:", overlayImage.length);
+    const overlay = await loadImage(overlayImage);
+    const overlayWidth = 700;
+    const overlayHeight = 310;
 
-  // position: horizontally centered, vertical around bottle label
-  const x = width / 2;
-  const y = 460; // adjust to sit on the label area
+    const x = (canvas.width - overlayWidth) / 2 + 15;
+    const y = (canvas.height - overlayHeight) / 2 - 330;
 
-  ctx.fillText(text, x, y);
+    ctx.drawImage(overlay, x, y, overlayWidth, overlayHeight);
+
+  }
 
   // ---- Return PNG ----
   const buffer = canvas.toBuffer("image/png");
-
   const headers: HeadersInit = { "Content-Type": "image/png" };
+
   if (mode === "download") {
     headers["Content-Disposition"] = "attachment; filename=heinz.png";
   }
